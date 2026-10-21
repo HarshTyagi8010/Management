@@ -1,0 +1,17 @@
+{
+  "name": "@bizmgmt/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure business rules: decimal arithmetic, rounding and inventory valuation (financial-policy.md).",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "decimal.js": "10.6.0"
+  }
+}

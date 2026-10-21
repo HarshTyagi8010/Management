@@ -1,0 +1,88 @@
+openapi: 3.1.0
+info:
+  title: Business Management API
+  version: 0.1.0
+  description: |
+    Phase 1 surface (implemented): health/readiness and the error envelope.
+    Later phases add resources per docs/api/api-conventions.md; planned paths are
+    listed under `x-planned` and are NOT implemented.
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      operationId: getHealth
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /ready:
+    get:
+      summary: Readiness probe (database connectivity)
+      operationId: getReady
+      responses:
+        '200':
+          description: Ready
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Readiness' }
+        '503':
+          description: Not ready
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+components:
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, service, version, time]
+      properties:
+        status: { const: ok }
+        service: { type: string }
+        version: { type: string }
+        time: { type: string, format: date-time }
+    Readiness:
+      type: object
+      additionalProperties: false
+      required: [status, checks]
+      properties:
+        status: { enum: [ready] }
+        checks:
+          type: object
+          additionalProperties: { enum: [up, down, skipped] }
+    DecimalString:
+      type: string
+      pattern: '^-?\d{1,15}(\.\d{1,6})?$'
+      description: Exact decimal as string. Money uses at most 2 fractional digits.
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            requestId: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  path: { type: string }
+                  message: { type: string }
+x-planned:
+  phase-3: [/auth/login, /auth/logout, /auth/csrf, /auth/mfa/*, /me, /users, /roles, /memberships, /sessions]
+  phase-4: [/legal-entities, /gst-registrations, /parties, /items, /units, /tax-classes, /tax-rate-schedules]
+  phase-5: [/warehouses, /stock-movements, /stock-balances, /transfers, /stock-adjustments, /stock-counts]
+  phase-7: [/quotations, /sales-orders, /dispatches, /sales-invoices]
+  phase-8: [/purchase-orders, /goods-receipts, /supplier-bills]
+  phase-9: [/receipts, /payments, /allocations, /expenses, /sales-returns, /purchase-returns, /credit-notes, /debit-notes]
+  phase-11: [/reports/*, /dashboard]

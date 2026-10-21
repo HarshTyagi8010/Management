@@ -1,0 +1,25 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# project-local caches, temp and generated output
+.cache/
+.tmp/
+.artifacts/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+
+# environment and secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log

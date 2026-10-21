@@ -1,0 +1,44 @@
+{
+  "name": "@bizmgmt/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env --conditions=source --import tsx --watch src/server.ts",
+    "start": "node dist/server.js",
+    "db:migrate": "node --env-file-if-exists=../../.env --conditions=source --import tsx src/migrate.ts",
+    "e2e:server": "node --conditions=source --import tsx test/e2e-server.ts",
+    "db:seed": "node --env-file-if-exists=../../.env --conditions=source --import tsx src/seed.ts",
+    "stock:reconcile": "node --env-file-if-exists=../../.env --conditions=source --import tsx src/reconcile.ts"
+  },
+  "dependencies": {
+    "@bizmgmt/contracts": "0.1.0",
+    "@bizmgmt/domain": "0.1.0",
+    "@expo-google-fonts/noto-sans": "0.4.2",
+    "argon2": "^0.45.1",
+    "cors": "^2.8.5",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "mongoose": "^9.11.2",
+    "pdfmake": "0.3.11",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/supertest": "^7.2.1",
+    "mongodb-memory-server-core": "^11.3.0",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15"
+  },
+  "exports": {
+    "./jobs": {
+      "source": "./src/jobs/index.ts",
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@bizmgmt/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env --conditions=source --import tsx --watch src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@bizmgmt/api": "0.1.0",
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

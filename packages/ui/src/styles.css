@@ -1,0 +1,158 @@
+/*
+ * BizMgmt design tokens — PROVISIONAL.
+ * Not sampled from the UI reference (inaccessible; see docs/design/design-system.md §1).
+ * Raw values live in --bz-* custom properties so light/dark themes can swap them;
+ * Tailwind utilities (bg-surface, text-muted, …) map onto them via @theme inline.
+ * Consumers must `@import 'tailwindcss'` before this file.
+ */
+
+:root {
+  color-scheme: light;
+  --bz-bg: #f6f7f9;
+  --bz-surface: #ffffff;
+  --bz-surface-muted: #f1f3f6;
+  --bz-border: #e4e7ec;
+  --bz-border-strong: #c9ced8;
+  --bz-text: #101828;
+  --bz-text-muted: #5b6474;
+  --bz-accent: #4f46e5;
+  --bz-accent-hover: #4338ca;
+  --bz-accent-soft: #eef0ff;
+  --bz-accent-contrast: #ffffff;
+  --bz-success: #067647;
+  --bz-success-soft: #e7f6ee;
+  --bz-warning: #b54708;
+  --bz-warning-soft: #fef3e6;
+  --bz-danger: #b42318;
+  --bz-danger-soft: #fdecea;
+  --bz-info: #175cd3;
+  --bz-info-soft: #e8f0fd;
+  --bz-focus: #4f46e5;
+  --bz-chart-1: #4f46e5;
+  --bz-chart-2: #0e9384;
+  --bz-chart-3: #dc6803;
+  --bz-shadow-card: 0 1px 2px rgb(16 24 40 / 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bz-bg: #0f1115;
+    --bz-surface: #171a21;
+    --bz-surface-muted: #1e222b;
+    --bz-border: #2a2f3a;
+    --bz-border-strong: #3b4252;
+    --bz-text: #f2f4f7;
+    --bz-text-muted: #a3abb8;
+    --bz-accent: #8b85f5;
+    --bz-accent-hover: #a5a0f8;
+    --bz-accent-soft: #25234a;
+    --bz-accent-contrast: #0f1115;
+    --bz-success: #47cd89;
+    --bz-success-soft: #12301f;
+    --bz-warning: #fdb022;
+    --bz-warning-soft: #3a2a0c;
+    --bz-danger: #f97066;
+    --bz-danger-soft: #3d1a17;
+    --bz-info: #53b1fd;
+    --bz-info-soft: #102a45;
+    --bz-focus: #a5a0f8;
+    --bz-chart-1: #8b85f5;
+    --bz-chart-2: #3ccbb4;
+    --bz-chart-3: #fdb022;
+    --bz-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bz-bg: #0f1115;
+  --bz-surface: #171a21;
+  --bz-surface-muted: #1e222b;
+  --bz-border: #2a2f3a;
+  --bz-border-strong: #3b4252;
+  --bz-text: #f2f4f7;
+  --bz-text-muted: #a3abb8;
+  --bz-accent: #8b85f5;
+  --bz-accent-hover: #a5a0f8;
+  --bz-accent-soft: #25234a;
+  --bz-accent-contrast: #0f1115;
+  --bz-success: #47cd89;
+  --bz-success-soft: #12301f;
+  --bz-warning: #fdb022;
+  --bz-warning-soft: #3a2a0c;
+  --bz-danger: #f97066;
+  --bz-danger-soft: #3d1a17;
+  --bz-info: #53b1fd;
+  --bz-info-soft: #102a45;
+  --bz-focus: #a5a0f8;
+  --bz-chart-1: #8b85f5;
+  --bz-chart-2: #3ccbb4;
+  --bz-chart-3: #fdb022;
+  --bz-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+}
+
+@theme inline {
+  --color-bg: var(--bz-bg);
+  --color-surface: var(--bz-surface);
+  --color-surface-muted: var(--bz-surface-muted);
+  --color-border: var(--bz-border);
+  --color-border-strong: var(--bz-border-strong);
+  --color-text: var(--bz-text);
+  --color-muted: var(--bz-text-muted);
+  --color-accent: var(--bz-accent);
+  --color-accent-hover: var(--bz-accent-hover);
+  --color-accent-soft: var(--bz-accent-soft);
+  --color-accent-contrast: var(--bz-accent-contrast);
+  --color-success: var(--bz-success);
+  --color-success-soft: var(--bz-success-soft);
+  --color-warning: var(--bz-warning);
+  --color-warning-soft: var(--bz-warning-soft);
+  --color-danger: var(--bz-danger);
+  --color-danger-soft: var(--bz-danger-soft);
+  --color-info: var(--bz-info);
+  --color-info-soft: var(--bz-info-soft);
+  --color-focus: var(--bz-focus);
+  --shadow-card: var(--bz-shadow-card);
+}
+
+@theme {
+  --font-sans: 'Inter Variable', system-ui, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --text-kpi: 1.875rem;
+  --text-kpi--line-height: 2.25rem;
+  --spacing-sidebar: 248px;
+  --spacing-sidebar-collapsed: 72px;
+  --spacing-header: 64px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

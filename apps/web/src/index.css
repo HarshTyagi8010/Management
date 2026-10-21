@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@bizmgmt/ui/styles.css';
+
+/* Scan the UI package for class names (it is consumed from source). */
+@source '../../../packages/ui/src';
