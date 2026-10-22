@@ -135,3 +135,42 @@ field plus daily reconciliation. Reversals create mirror journals; nothing is de
 | Inventory value | Σ onHand × current average cost |
 | Gross margin (estimate) | Sales − COGS at weighted average. Never "net profit". |
 
+## 10. Authoritative Financial Reconciliation (Batch B)
+
+Implemented via `ReconciliationService` (`GET /api/v1/reconciliation/financial`), protected by permission `report.financial` and tenant/legal-entity scoping.
+
+### 10.1 Customer Receipt Settlement and Allocation Accounting Model
+When an incoming customer cash receipt is posted as an advance, it credits `2300 Customer advances`:
+- **Receipt Journal**: Dr 1110 Bank / 1100 Cash, Cr 2300 Customer advances.
+When that advance is subsequently allocated to a sales invoice:
+- **Allocation Reclassification Journal**: Dr 2300 Customer advances, Cr 1200 Trade receivables (`sourceType: 'allocation'`, `sourceId: allocation._id`).
+- This reclassifies the advance liability into a settlement of the customer receivable, ensuring both GL 1200 and GL 2300 reflect true economic balances without requiring artificial reconciliation additions.
+- On payment reversal, active allocation journals are mirrored (Dr 1200, Cr 2300) alongside payment reversal (Dr 2300, Cr 1110), restoring invoice outstanding and GL balances cleanly.
+- For note-origin credits (`recordKind = 'credit_note_excess'`), GL 1200 was already credited at Credit Note issue time; allocations of note-origin credits do **not** post secondary journals, avoiding double-counting.
+
+### 10.2 Revised Control Account Bridges and Subledger Formulas
+
+| Module | GL Account(s) | GL Sign Convention | Subledger Expected Balance Formula | Included Operational Records |
+|---|---|---|---|---|
+| **Journal Integrity** | All active accounts | N/A (Self-balancing) | Σ Line Debits = Σ Line Credits; 1-to-1 operational document posting check | All posted `Journal` records; sales invoices, supplier bills, payments, credit/debit notes, expenses, allocations |
+| **Trade Receivables (AR)** | 1200 | Net Dr (Debit − Credit) | `Σ salesInvoices.remainingBalance` (issued) − `Σ unallocatedCreditNoteExcess` | Issued `SalesInvoice`, unallocated `Payment` (`recordKind = 'credit_note_excess'`) |
+| **Trade Payables (AP)** | 2100 | Net Cr (Credit − Debit) | `Σ supplierBills.remainingBalance` (posted) + `Σ accruedExpenses` − `Σ supplierDisbursementsUnallocated` − `Σ unallocatedDebitNoteExcess` | Posted `SupplierBill`, posted `Expense` (`paymentMode = 'payable'`), unallocated `Payment` (`disbursement`), unallocated `Payment` (`recordKind = 'debit_note_excess'`) |
+| **Customer Advances** | 2300 | Net Cr (Credit − Debit) | `Σ unallocatedCustomerReceipts` | Posted `Payment` (`direction = 'incoming'`, `recordKind = 'payment'`, `status = 'posted'`) |
+| **Inventory Valuation** | 1300 | Net Dr (Debit − Credit) | `Σ itemValuations.totalValue` | `ItemValuation` moving-average valuation records per legal entity and stock item |
+| **Input Tax (ITC)** | 1410 CGST, 1411 SGST, 1412 IGST, 1413 RCM | Net Dr (Debit − Credit) | `Σ ITC-eligible bills tax` + `Σ ITC-eligible direct expenses tax` − `Σ ITC-eligible purchase return debit notes tax` | Posted `SupplierBill` (`itcEligible: true`), posted `Expense` (`itcEligible: true`), issued `DebitNote` (linked to ITC-eligible bill) |
+| **Output Tax** | 2210 CGST, 2211 SGST, 2212 IGST, 2213 Cess | Net Cr (Credit − Debit) | `Σ issued invoices tax` − `Σ sales return credit notes tax` | Issued `SalesInvoice`, issued `CreditNote` |
+
+### 10.3 Purchase Return Tax Treatment
+- Purchase returns (Debit Notes) reduce input tax accounts (1410–1413) **only** when the underlying supplier bill was ITC-eligible.
+- When an inward supply was ITC-ineligible (`itcEligible: false`), the original purchase and its return credit gross cost (1300 or 5100), not input tax. The reconciliation verifies the linked bill's ITC status and avoids incorrect deductions.
+- Unsupported or manual postings on tax accounts are surfaced in reconciliation diagnostics.
+
+### 10.4 Date Policy and Runtime Bounds
+- **Closed Historical Periods**: Direct edits or mirror reversals of postings dated in a locked period are strictly prevented by the period-lock guard.
+- **Linked Current-Period Corrections**: Linked commercial adjustment documents (Credit Notes, Debit Notes) can reference historical documents while being dated and posted in an open current period.
+- **Application Runtime Bounds**: Reconciliation requests enforce an application-level timeout (15,000 ms). An interrupted or timed-out execution yields status `INCOMPLETE`, never `MATCHED`.
+- **Historical Retrospective Mode**: Retrospective reconciliation at past dates is unsupported (`mode === 'historical'` returns `UNSUPPORTED`) because mutable in-place fields reflect current balances. Point-in-time reconstruction would require period balance snapshots or historical roll-ups.
+- **Empty Dataset**: Returns status `INCOMPLETE` (`emptyDataset: true`), never `MATCHED`.
+
+
+

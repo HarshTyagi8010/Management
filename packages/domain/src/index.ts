@@ -5,3 +5,4 @@ export * from './journal.js';
 export * from './sales.js';
 export * from './purchase.js';
 export * from './payment.js';
+export * from './csv.js';

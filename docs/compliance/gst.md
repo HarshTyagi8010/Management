@@ -161,3 +161,61 @@ A UPI payment QR (if added) is labelled "Scan to pay" and is visually distinct f
   - Rate periods can't overlap.
   - Non-taxable classes can't have rates.
   - Reverse charge is an explicit per-class flag (GST-13).
+
+## 12. Batch C Statutory Preparation Specifications & Verified Sources (2026-10-22)
+
+Status: **Verified** per official notifications and circulars below. **Notice:** Preparation only — not filed. No direct GSTN portal filing or simulated upload.
+
+### 12.1 Official Source Register Additions
+| ID | Source | URL | Checked | Applicability |
+|---|---|---|---|---|
+| S12 | CBIC Notif. 14/2022-CT & Circular 170/02/2022-GST (GSTR-3B Table 4 Reporting) | https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/circulars/cgst_circulars/active/cir-170-02-2022.html | 2026-10-22 (verified circular text) | Mandatory for tax periods from July 2022 onwards |
+| S13 | CBIC Notif. 12/2024-CT (amending Rule 59(4)(b) B2CL invoice threshold to ₹1 lakh, clauses 11(ii) & 28) | https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/notifications/cgst_notifications/active/notfctn-12-central-tax-english-2024.pdf | 2026-10-22 (verified notification) | **Effective 1 August 2024** (clause 28). Earlier ₹2.5 lakh threshold applies prior to 01-08-2024. |
+| S14 | CGST Rules, Rule 59 & GSTR-1 Return Schema (Tables 4, 5, 7, 8, 9, 12, 13) | https://www.gst.gov.in/help/returns | 2026-10-22 (verified portal table layouts) | Current statutory format |
+| S15 | CGST Act s.11, s.16, s.17(5) and IGST Act s.6, s.16 (Supplies Classification) | https://cbic-gst.gov.in/ | 2026-10-22 (statutory definitions) | Current |
+
+### 12.2 Statutory Clarifications & Corrected Mappings
+1. **GSTR-3B Table 4 (ITC Architecture per Circular 170/02/2022-GST):**
+   - **Table 4(A)(5) "All other ITC":** Inward supplies declared eligible by user. Not automatically claimable without supplier filing and GSTR-2B matching.
+   - **Table 4(A)(3) "Inward supplies liable to reverse charge":** Inward supplies subject to RCM cannot be claimed as claim-ready Table 4(A)(3) or Table 4(A)(5) credit merely because `reverseCharge` is true. Inward RCM requires statutory proof of reverse charge tax liability discharge and payment (e.g. through GSTR-3B Table 3.1(d) cash ledger debit). Because the internal ledger lacks connected GSTN cash ledger challan evidence, inward RCM bills are marked `REVIEW_REQUIRED` with explicit disclosure and kept outside confirmed claim-ready totals (`eligibleTaxCharged`). Accounting input-tax classification is maintained separately from statutory claim readiness.
+   - **Table 4(B)(1) "As per rules 38, 42 & 43 & section 17(5)":** Reversal of permanent, non-reclaimable ITC. Section 17(5) blocked credit MUST be reversed here if availed in 4(A).
+   - **Table 4(B)(2) "Others" vs Purchase Return Review:** Buyer-created purchase-return debit memos are internal commercial accounting adjustments. Under Circular 170/02/2022-GST, they do **NOT** automatically map to Table 4(B)(2). In the preparation register, purchase returns are marked `REVIEW_REQUIRED`:
+     - If the supplier issues a credit note in GSTR-1 reflected in GSTR-2B of the same period, ITC in 4(A)(5) may be auto-drafted net of credit notes. Assigning 4(B)(2) simultaneously would cause duplicate reduction.
+     - Table 4(B)(2) applies where ITC was already claimed in a prior period and is reversed in the current period.
+     - Buyer memos require GSTR-2B statement matching or supplier credit note confirmation before statutory table assignment.
+   - **Table 4(D)(1) "ITC reclaimed":** Strictly for reporting previously reversed temporary credits being reclaimed upon payment or condition fulfillment. Not Section 17(5).
+   - **Table 4(D)(2) "Ineligible ITC under section 16(4) & PoS rules":** Strictly for reporting ITC barred by time limitation under s.16(4) or place-of-supply restrictions. Not generic composition/exempt purchases.
+
+2. **Outward Supplies (GSTR-3B Table 3.1 & GSTR-1):**
+   - **Table 3.1(a) "Outward taxable supplies":** Regular domestic supplies with GST rate > 0% to registered and unregistered persons.
+   - **Table 3.1(b) "Outward taxable supplies (zero rated)":** Exports of goods/services and supplies to SEZ units/developers (under LUT or with payment of IGST).
+   - **Table 3.1(c) "Other outward supplies (Nil rated, exempted)":** Supplies where the tariff rate is nil (0%) or wholly exempt under Section 11 CGST / Section 6 IGST.
+   - **Table 3.1(d) "Inward supplies liable to reverse charge":** Recipient liability under Section 9(3)/9(4).
+   - **Table 3.1(e) "Non-GST outward supplies":** Supplies completely outside GST scope (e.g. petroleum crude, diesel, petrol, ATF, natural gas, alcoholic liquor). Must NOT be combined into 3.1(c).
+   - **Zero Tax Rate Rule:** A numeric tax rate of `0%` does NOT automatically determine statutory classification. Ambiguous zero-rate supplies lacking explicit tax class classification are placed in `AMBIGUOUS_ZERO_RATE` exception bucket.
+
+3. **GSTR-1 Outward Supply Categorization Rules:**
+   - **Table 4A (B2B Regular):** Recipient has valid GSTIN; document kind is tax invoice.
+   - **Table 5 (B2CL - Large Unregistered):** Recipient has no GSTIN; supply is inter-state; invoice value strictly > threshold (₹1,00,000 for documents dated on or after **1 August 2024** per Notification 12/2024-CT clause 28; ₹2,50,000 prior to 1 August 2024). Invoice value exactly ₹1,00,000 falls in B2CS Table 7. Intra-state supplies of any value fall in B2CS Table 7.
+   - **Table 7 (B2CS - Small Unregistered & B2CS Adjustments):**
+     - Recipient has no GSTIN; includes all intra-state supplies of any value, and inter-state supplies $\le$ the B2CL threshold.
+     - Outward credit notes issued against B2CS supplies are netted directly against B2CS supplies in Table 7. They are **NOT** reported in Table 9B CDNUR, preventing double-counting.
+   - **Table 8 (Nil/Exempt/Non-GST):** Grouped separately into Nil Rated, Exempted, and Non-GST columns.
+   - **Table 9B (Credit / Debit Notes):**
+     - CDNR: Registered recipients.
+     - CDNUR: Unregistered recipients for **B2CL supplies ONLY**.
+   - **Exceptions Bucket:** Every document with missing place of supply, unverified zero tax rate, or missing turnover-mandated HSN digits is segregated with explicit error codes.
+   - **Population Reconciliation:** Total Population = $\sum \text{Classified Buckets} + \sum \text{Exceptions Bucket}$. No supplies are silently omitted.
+
+4. **Document Summary (GSTR-1 Table 13):**
+   - Table 13 tracks outward statutory documents issued during the tax period by series.
+   - Inward buyer purchase-return debit memos are internal commercial accounting adjustments and are **EXCLUDED** from Table 13 Entry 4 (Debit Notes). Table 13 Debit Notes are outward statutory debit notes issued to customers under Section 34.
+   - Internal vouchers (`BILL`, `PAY`, `REC`, buyer `DN`) are segregated in `internalExcludedSeries` with explicit rationale.
+
+5. **Period-Close Readiness & Freshness Token Policy:**
+   - Freshness token is structured as `<base64url(JSON)>.<HMAC-SHA256>` cryptographically signed with the application keyring secret (`keys.data`).
+   - Token payload binds `tenantId`, `legalEntityId`, `periodEndDate`, `closeMode`, `coordinationSeq`, `warningsHash`, and `expiresAt` (30-minute validity).
+   - Any financial posting made after checklist generation increments `LegalEntity.periodLockCoordination` via the shared `assertPeriodOpen` guard, immediately invalidating the coordination token.
+   - Authoritative real-time re-evaluation is performed on execution. Warning acknowledgements are strictly bound to the evaluated finding set via `warningsHash`: if findings or warning titles change between generation and execution, close is rejected.
+   - **Past-Period Close Policy:** Current-state reconciliation cannot prove historical closing balances when subsequent transactions exist. Reconciled close on past periods is blocked. For past periods, an explicit **Administrative Posting Lock** (`mode: 'administrative_lock'`) is supported, providing backdated posting protection with explicit non-reconciled disclosure in the audit log. Neither lock nor close fabricates historical reconciliation.
+

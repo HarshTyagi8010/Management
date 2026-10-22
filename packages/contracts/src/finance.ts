@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { stateCodeSchema } from './india.js';
-import { businessDateSchema, nonNegativeMoneySchema, objectIdSchema, quantitySchema, taxRateSchema, unitPriceSchema } from './primitives.js';
+import {
+  businessDateSchema,
+  moneySchema,
+  nonNegativeMoneySchema,
+  objectIdSchema,
+  quantitySchema,
+  taxRateSchema,
+  unitPriceSchema,
+} from './primitives.js';
 
 /**
  * Financial engine (Phase 6): calculation preview, chart of accounts, journals,
@@ -139,6 +147,7 @@ export const JOURNAL_SOURCE_TYPES = [
   'expense',
   'credit_note',
   'debit_note',
+  'allocation',
 ] as const;
 
 export const journalSchema = z.strictObject({
@@ -208,3 +217,170 @@ export const documentArtifactSchema = z.strictObject({
   createdAt: z.iso.datetime(),
 });
 export type DocumentArtifact = z.infer<typeof documentArtifactSchema>;
+
+// ------------------------------------------------- financial reconciliation
+
+export const RECONCILIATION_STATUSES = ['MATCHED', 'MISMATCH', 'INCOMPLETE', 'UNSUPPORTED'] as const;
+export type ReconciliationStatus = (typeof RECONCILIATION_STATUSES)[number];
+
+export const financialReconciliationQuerySchema = z.strictObject({
+  legalEntityId: objectIdSchema,
+  mode: z.enum(['current', 'historical']).default('current'),
+  asOfDate: businessDateSchema.optional(),
+  drillDown: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+});
+export type FinancialReconciliationQuery = z.infer<typeof financialReconciliationQuerySchema>;
+
+export const financialReconciliationResponseSchema = z.strictObject({
+  legalEntityId: objectIdSchema,
+  currency: z.literal('INR'),
+  mode: z.enum(['current', 'historical']),
+  asOfDate: z.string(),
+  generatedAt: z.iso.datetime(),
+  reconciliationVersion: z.string(),
+  status: z.enum(RECONCILIATION_STATUSES),
+  summary: z.strictObject({
+    totalSections: z.number().int(),
+    matchedSections: z.number().int(),
+    mismatchedSections: z.number().int(),
+    incompleteSections: z.number().int(),
+    unsupportedSections: z.number().int(),
+    emptyDataset: z.boolean(),
+  }),
+  unsupportedConditions: z.array(z.string()),
+  sections: z.strictObject({
+    journalIntegrity: z.strictObject({
+      name: z.string(),
+      status: z.enum(RECONCILIATION_STATUSES),
+      journalsChecked: z.number().int(),
+      balancedJournals: z.number().int(),
+      unbalancedJournals: z.number().int(),
+      missingPostings: z.number().int(),
+      duplicatePostings: z.number().int(),
+      orphanedJournals: z.number().int(),
+      issues: z.array(
+        z.strictObject({
+          kind: z.string(),
+          journalId: objectIdSchema.nullable().optional(),
+          sourceId: objectIdSchema.nullable().optional(),
+          detail: z.string(),
+        }),
+      ),
+    }),
+    tradeReceivables: z.strictObject({
+      name: z.string(),
+      glAccount: z.literal('1200'),
+      status: z.enum(RECONCILIATION_STATUSES),
+      glBalance: moneySchema,
+      subledgerBalance: moneySchema,
+      difference: moneySchema,
+      breakdown: z.strictObject({
+        issuedInvoicesOutstanding: moneySchema,
+        unallocatedCreditNoteExcess: moneySchema,
+        advancesAllocatedToInvoices: moneySchema,
+        invoicesCount: z.number().int(),
+        creditNotesCount: z.number().int(),
+      }),
+      diagnostics: z.array(z.string()),
+    }),
+    tradePayables: z.strictObject({
+      name: z.string(),
+      glAccount: z.literal('2100'),
+      status: z.enum(RECONCILIATION_STATUSES),
+      glBalance: moneySchema,
+      subledgerBalance: moneySchema,
+      difference: moneySchema,
+      breakdown: z.strictObject({
+        postedBillsOutstanding: moneySchema,
+        unallocatedDisbursements: moneySchema,
+        unallocatedDebitNoteExcess: moneySchema,
+        billsCount: z.number().int(),
+        paymentsCount: z.number().int(),
+        debitNotesCount: z.number().int(),
+      }),
+      diagnostics: z.array(z.string()),
+    }),
+    customerAdvances: z.strictObject({
+      name: z.string(),
+      glAccount: z.literal('2300'),
+      status: z.enum(RECONCILIATION_STATUSES),
+      glBalance: moneySchema,
+      subledgerBalance: moneySchema,
+      difference: moneySchema,
+      breakdown: z.strictObject({
+        unallocatedReceiptAdvances: moneySchema,
+        allocatedAdvances: moneySchema,
+        receiptsCount: z.number().int(),
+      }),
+      diagnostics: z.array(z.string()),
+    }),
+    inventoryValuation: z.strictObject({
+      name: z.string(),
+      glAccount: z.literal('1300'),
+      status: z.enum(RECONCILIATION_STATUSES),
+      glBalance: moneySchema,
+      subledgerBalance: moneySchema,
+      difference: moneySchema,
+      breakdown: z.strictObject({
+        valuationItemsCount: z.number().int(),
+      }),
+      diagnostics: z.array(z.string()),
+    }),
+    taxAccounts: z.strictObject({
+      name: z.string(),
+      status: z.enum(RECONCILIATION_STATUSES),
+      glBalance: moneySchema,
+      subledgerBalance: moneySchema,
+      difference: moneySchema,
+      subAccounts: z.array(
+        z.strictObject({
+          accountCode: z.string(),
+          name: z.string(),
+          glBalance: moneySchema,
+          expectedBalance: moneySchema,
+          difference: moneySchema,
+          status: z.enum(RECONCILIATION_STATUSES),
+        }),
+      ),
+      diagnostics: z.array(z.string()),
+    }),
+  }),
+  drillDown: z
+    .strictObject({
+      receivables: z.array(
+        z.strictObject({
+          id: objectIdSchema,
+          number: z.string(),
+          partyName: z.string(),
+          docDate: z.string(),
+          grand: moneySchema,
+          outstanding: moneySchema,
+        }),
+      ).optional(),
+      payables: z.array(
+        z.strictObject({
+          id: objectIdSchema,
+          number: z.string().nullable(),
+          partyName: z.string(),
+          docDate: z.string(),
+          grand: moneySchema,
+          outstanding: moneySchema,
+        }),
+      ).optional(),
+      advances: z.array(
+        z.strictObject({
+          id: objectIdSchema,
+          number: z.string().nullable(),
+          partyName: z.string(),
+          docDate: z.string(),
+          amount: moneySchema,
+          unallocatedAmount: moneySchema,
+        }),
+      ).optional(),
+    })
+    .optional(),
+});
+export type FinancialReconciliationResponse = z.infer<typeof financialReconciliationResponseSchema>;

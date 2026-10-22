@@ -94,8 +94,10 @@ export async function api<T = void>(path: string, { method = 'GET', body, schema
     if (error.code === 'UNAUTHENTICATED' && !path.startsWith('/auth/login')) unauthenticatedListeners.forEach((l) => l());
     throw error;
   }
-  if (res.status === 204 || !schema) return undefined as T;
-  return schema.parse(await res.json());
+  if (res.status === 204) return undefined as T;
+  const json = await res.json().catch(() => undefined);
+  if (!schema) return json as T;
+  return schema.parse(json);
 }
 
 /**

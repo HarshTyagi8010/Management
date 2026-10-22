@@ -105,6 +105,15 @@ export function customerReceiptJournalLines(amount: string, method: string, allo
 }
 
 /**
+ * Customer advance allocation to invoice (financial-policy §6.5):
+ * Reclassifies advance liability to reduce trade receivables:
+ * Dr 2300 Customer advances, Cr 1200 Trade receivables.
+ */
+export function customerAllocationJournalLines(amount: string): Lines {
+  return [debit('2300', amount), credit('1200', amount)];
+}
+
+/**
  * Supplier disbursement (financial-policy §6.5): Dr 2100 Trade payables,
  * Cr 1100 Cash / 1110 Bank.
  */

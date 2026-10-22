@@ -34,6 +34,7 @@ import { withTransaction } from '../../platform/transactions.js';
 import type { AuditLog } from '../audit/audit.js';
 import type { JournalService } from '../finance/journals.js';
 import { supplierBillJournalLines } from '../finance/journals.js';
+import { assertPeriodOpen } from '../finance/period-lock.js';
 import type { NumberingService } from '../finance/numbering.js';
 import type { RequestMeta } from '../identity/identity.js';
 import type { PostLine, StockLedger } from '../inventory/ledger.js';
@@ -97,11 +98,13 @@ export class SupplierBillService {
 
       let taxRate: string | null = null;
       let cessRate: string | null = null;
+      let reverseCharge = false;
 
       const targetTaxClassId = l.taxClassId ?? item.taxClassId?.toString();
       if (targetTaxClassId) {
         const tc = taxClassMap.get(targetTaxClassId);
         if (tc) {
+          if (tc.reverseCharge) reverseCharge = true;
           const schedule = tc.schedules?.find((s: RateScheduleDoc) => s.effectiveFrom <= docDate && (!s.effectiveTo || s.effectiveTo >= docDate));
           if (schedule) {
             taxRate = fromDecimal(schedule.gstRate);
@@ -117,7 +120,7 @@ export class SupplierBillService {
         hsnSac: item.hsnSac || '',
         taxRate,
         cessRate,
-        reverseCharge: false,
+        reverseCharge,
       });
 
       lineDocs.push({
@@ -138,7 +141,7 @@ export class SupplierBillService {
         discount: l.discountPercent ? { type: 'percent', value: toDecimal(l.discountPercent) } : l.discountAmount ? { type: 'amount', value: toDecimal(l.discountAmount) } : null,
         taxRate: taxRate ? toDecimal(taxRate) : null,
         cessRate: cessRate ? toDecimal(cessRate) : null,
-        reverseCharge: false,
+        reverseCharge,
         amounts: {} as AmountsDoc,
         sourceLineId: l.sourceLineId ?? null,
         goodsReceiptLineId: l.goodsReceiptLineId ?? null,
@@ -456,6 +459,7 @@ export class SupplierBillService {
     const series = await preparePurchaseSeries(this.models, this.numbering, ctx, 'supplier_bill', bill.legalEntityId, null, bill.docDate);
 
     return await withTransaction(this.models.SupplierBill.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: bill.legalEntityId, docDate: bill.docDate, models: this.models });
       // 1. Assign gap-free number
       const allocated = await takePurchaseNumber(session, this.numbering, ctx, series, bill.docDate);
       bill.number = allocated.number;
@@ -628,6 +632,7 @@ export class SupplierBillService {
     const stockInPoint = entity.workflow?.stockInPoint ?? 'goods_receipt';
 
     return await withTransaction(this.models.SupplierBill.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: bill.legalEntityId, docDate: bill.docDate, models: this.models });
       // 1. Reverse journal
       await this.journals.reverse(session, {
         tenantId: ctx.tenantId,

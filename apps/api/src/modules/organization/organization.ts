@@ -23,6 +23,7 @@ import type { BankAccountDoc, DocumentSeriesDoc, GstRegistrationDoc, LegalEntity
 import { inspectImage } from '../../platform/images.js';
 import type { ObjectStorage } from '../../platform/storage.js';
 import { isDuplicateKey, todayIST, versionConflict } from '../../platform/values.js';
+import { withTransaction } from '../../platform/transactions.js';
 import type { AuditInput, AuditLog } from '../audit/audit.js';
 import type { JournalService } from '../finance/journals.js';
 import type { RequestMeta } from '../identity/identity.js';
@@ -230,8 +231,15 @@ export class OrganizationService {
     if (input.lockDate && input.lockDate >= todayIST(this.now())) {
       throw new AppError('VALIDATION_FAILED', 'Lock a period that has ended: choose a date before today', [{ path: 'lockDate', message: 'Must be before today' }]);
     }
-    const updated = await this.deps.models.LegalEntity.findOneAndUpdate({ tenantId: ctx.tenantId, _id: entity._id, version: input.version }, { $set: { periodLockDate: input.lockDate }, $inc: { version: 1 } }, { returnDocument: 'after' }).lean();
-    if (!updated) throw versionConflict('business entity');
+    const updated = await withTransaction(this.deps.models.LegalEntity.db, async (session) => {
+      const res = await this.deps.models.LegalEntity.findOneAndUpdate(
+        { tenantId: ctx.tenantId, _id: entity._id, version: input.version },
+        { $set: { periodLockDate: input.lockDate }, $inc: { version: 1, periodLockCoordination: 1 } },
+        { session, returnDocument: 'after' },
+      ).lean();
+      if (!res) throw versionConflict('business entity');
+      return res;
+    });
     await this.record(ctx, meta, {
       action: direction === 'forward' ? 'period.locked' : 'period.unlocked',
       entityType: 'legal_entity',

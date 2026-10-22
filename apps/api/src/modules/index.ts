@@ -24,7 +24,10 @@ import { inventoryRouter } from './inventory/routes.js';
 import { JournalService } from './finance/journals.js';
 import { NumberingService } from './finance/numbering.js';
 import { PreviewService } from './finance/preview.js';
+import { ReconciliationService } from './finance/reconciliation.js';
+import { ComplianceService } from './finance/compliance.js';
 import { financeRouter } from './finance/routes.js';
+
 import { createStorage } from '../platform/storage-factory.js';
 import { SalesCore } from './sales/core.js';
 import { DispatchService } from './sales/dispatches.js';
@@ -68,6 +71,8 @@ export async function buildModules({ config, logger, db, mailer: mailerOverride,
   const journals = new JournalService(models);
   const numbering = new NumberingService(models);
   const preview = new PreviewService(models);
+  const reconciliation = new ReconciliationService({ models, now });
+  const compliance = new ComplianceService({ models, reconciliation, keys, now, audit });
   const storage = createStorage(config.storage);
   const organization = new OrganizationService({ models, audit, journals, storage, ...clock });
   const catalogue = new CatalogueService({ models, audit, ...clock });
@@ -102,7 +107,7 @@ export async function buildModules({ config, logger, db, mailer: mailerOverride,
       catalogueRouter({ config, identity, tenancy, catalogue }),
       partiesRouter({ config, identity, tenancy, parties }),
       inventoryRouter({ config, models, now, identity, tenancy, inventory }),
-      financeRouter({ config, models, tenancy, journals, preview, now }),
+      financeRouter({ config, models, identity, tenancy, journals, preview, reconciliation, compliance, now }),
       salesRouter({ config, models, now, identity, tenancy, core: sales, quotations, orders, dispatches, invoices }),
       purchasesRouter({ config, models, now, identity, tenancy, orders: purchaseOrders, receipts: goodsReceipts, bills: supplierBills }),
       paymentsRouter({ config, models, now, identity, tenancy, payments, expenses, notes, statements }),
@@ -115,6 +120,8 @@ export async function buildModules({ config, logger, db, mailer: mailerOverride,
     inventory,
     journals,
     numbering,
+    reconciliation,
+    compliance,
     sales: { core: sales, quotations, orders, dispatches, invoices },
     purchases: { orders: purchaseOrders, receipts: goodsReceipts, bills: supplierBills },
     payments: { payments, expenses, notes, statements },
@@ -122,4 +129,5 @@ export async function buildModules({ config, logger, db, mailer: mailerOverride,
     mailer,
   };
 }
+
 

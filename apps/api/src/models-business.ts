@@ -70,6 +70,8 @@ export interface LegalEntityDoc {
   bankAccounts: BankAccountDoc[];
   /** Posting lock (FR-CO-05); enforced from Phase 6. */
   periodLockDate: string | null;
+  /** Atomic contention coordination counter for period lock race protection (Batch A). */
+  periodLockCoordination?: number;
   /** Printed on documents numbered after it was set (FR-CO-01). */
   logo: LogoDoc | null;
   archivedAt: Date | null;
@@ -115,6 +117,7 @@ export const legalEntitySchema = new Schema<LegalEntityDoc>(
       default: [],
     },
     periodLockDate: { type: String, default: null },
+    periodLockCoordination: { type: Number, default: 0 },
     logo: {
       type: new Schema<LogoDoc>({ fileId: { type: objectId, required: true }, contentType: { type: String, required: true }, sizeBytes: { type: Number, required: true }, width: { type: Number, required: true }, height: { type: Number, required: true } }, { _id: false }),
       default: null,

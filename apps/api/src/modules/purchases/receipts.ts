@@ -8,6 +8,7 @@ import type { AuditLog } from '../audit/audit.js';
 import type { NumberingService } from '../finance/numbering.js';
 import type { RequestMeta } from '../identity/identity.js';
 import type { PostLine, StockLedger } from '../inventory/ledger.js';
+import { assertPeriodOpen } from '../finance/period-lock.js';
 import { canInEntity, canInWarehouse, type TenantContext } from '../tenancy/tenancy.js';
 import {
   buildSupplierSnapshot,
@@ -239,6 +240,7 @@ export class GoodsReceiptService {
     const series = await preparePurchaseSeries(this.models, this.numbering, ctx, 'goods_receipt', grn.legalEntityId, null, grn.docDate);
 
     return await withTransaction(this.models.GoodsReceipt.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: grn.legalEntityId, docDate: grn.docDate, models: this.models });
       // 1. Assign gap-free number
       const allocated = await takePurchaseNumber(session, this.numbering, ctx, series, grn.docDate);
       grn.number = allocated.number;
@@ -351,6 +353,7 @@ export class GoodsReceiptService {
     }
 
     return await withTransaction(this.models.GoodsReceipt.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: grn.legalEntityId, docDate: grn.docDate, models: this.models });
       // 1. Restore/reverse PO received quantities
       if (grn.purchaseOrderId) {
         const po = (await this.models.PurchaseOrder.findOne({ tenantId: ctx.tenantId, _id: grn.purchaseOrderId }).session(session)) as HydratedDocument<PurchaseOrderDoc> | null;

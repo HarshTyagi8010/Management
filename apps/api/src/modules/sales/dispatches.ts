@@ -6,6 +6,7 @@ import { enqueue } from '../../platform/outbox.js';
 import { withTransaction } from '../../platform/transactions.js';
 import { toDecimal, todayIST, versionConflict } from '../../platform/values.js';
 import { cogsJournalLines } from '../finance/journals.js';
+import { assertPeriodOpen } from '../finance/period-lock.js';
 import type { RequestMeta } from '../identity/identity.js';
 import type { TenantContext } from '../tenancy/tenancy.js';
 import type { PostLine } from '../inventory/ledger.js';
@@ -115,6 +116,7 @@ export class DispatchService {
     await this.core.ledger.ensureRows(ctx.tenantId, entity._id, c.fields.lines.map((l) => ({ warehouseId: warehouse._id, itemId: l.itemId })));
     await this.core.deps.journals.ensureAccounts(ctx.tenantId, entity._id);
     const saved = await withTransaction(this.core.deps.connection, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: entity._id, docDate: doc.docDate, models: this.models });
       // The order is read again inside the transaction: a concurrent dispatch of the same order conflicts and retries.
       const order = await this.checkSource(ctx, doc, c.fields.lines, entity, session);
       const numbered = await this.core.takeNumber(session, ctx, series, doc.docDate);
@@ -185,6 +187,7 @@ export class DispatchService {
     const saved = await withTransaction(this.core.deps.connection, async (session) => {
       const current = await this.models.Dispatch.findOne({ tenantId: ctx.tenantId, _id: doc._id, version: input.version, status: 'dispatched' }, null, { session }).lean();
       if (!current || current.lines.some((l) => !dec(qtyOf(l.invoicedQty)).isZero())) throw versionConflict('dispatch');
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: entity._id, docDate: current.docDate, models: this.models });
       const number = current.number ?? '';
       const outs = await this.models.StockMovement.find({ tenantId: ctx.tenantId, sourceType: 'dispatch', sourceId: doc._id, kind: 'issue', reversalOf: null }, { sourceLineId: 1 }, { session }).lean();
       const outByLine = new Map(outs.map((m) => [m.sourceLineId, m._id]));

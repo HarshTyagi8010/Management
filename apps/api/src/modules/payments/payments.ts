@@ -30,6 +30,7 @@ import type {
 } from '../../models.js';
 import { fromDecimal, toDecimal, todayIST } from '../../platform/values.js';
 import { withTransaction } from '../../platform/transactions.js';
+import { assertPeriodOpen } from '../finance/period-lock.js';
 import { canInEntity, type TenantContext } from '../tenancy/tenancy.js';
 import {
   forbidden,
@@ -46,6 +47,7 @@ import {
 } from './core.js';
 import {
   creditNoteRefundJournalLines,
+  customerAllocationJournalLines,
   customerReceiptJournalLines,
   customerRefundJournalLines,
   debitNoteRefundJournalLines,
@@ -214,6 +216,7 @@ export class PaymentService {
     }
 
     return await withTransaction(this.models.Payment.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: payment.legalEntityId, docDate: payment.docDate, models: this.models });
       // 1. Assign number
       if (series) {
         const allocated = await this.numbering.take(session, ctx.tenantId, series._id, payment.docDate);
@@ -329,7 +332,24 @@ export class PaymentService {
             ],
             { session },
           );
-          if (allocation) createdAllocations.push(allocation);
+          if (allocation) {
+            createdAllocations.push(allocation);
+            if (lockedPayment.recordKind === 'payment') {
+              await this.journals.ensureAccounts(ctx.tenantId, lockedPayment.legalEntityId, session);
+              await this.journals.post(session, {
+                tenantId: ctx.tenantId,
+                legalEntityId: lockedPayment.legalEntityId,
+                docDate: todayIST(),
+                sourceType: 'allocation',
+                sourceId: allocation._id,
+                sourceNumber: `ALLOC/${lockedPayment.number ?? 'REC'}/${inv.number ?? 'INV'}`,
+                narration: `Allocation of Receipt ${lockedPayment.number} to Invoice #${inv.number}`,
+                lines: customerAllocationJournalLines(item.amount),
+                actorId: ctx.userId,
+                now: new Date(),
+              });
+            }
+          }
         } else {
           const bill = (await this.models.SupplierBill.findOne({
             tenantId: ctx.tenantId,
@@ -482,7 +502,7 @@ export class PaymentService {
           inv.version += 1;
           await inv.save({ session });
 
-          await this.models.Allocation.create(
+          const [allocation] = await this.models.Allocation.create(
             [
               {
                 tenantId: ctx.tenantId,
@@ -500,6 +520,21 @@ export class PaymentService {
             ],
             { session },
           );
+          if (allocation && lockedPayment.recordKind === 'payment') {
+            await this.journals.ensureAccounts(ctx.tenantId, lockedPayment.legalEntityId, session);
+            await this.journals.post(session, {
+              tenantId: ctx.tenantId,
+              legalEntityId: lockedPayment.legalEntityId,
+              docDate: todayIST(),
+              sourceType: 'allocation',
+              sourceId: allocation._id,
+              sourceNumber: `ALLOC/${lockedPayment.number ?? 'REC'}/${inv.number ?? 'INV'}`,
+              narration: `FIFO allocation of Receipt ${lockedPayment.number} to Invoice #${inv.number}`,
+              lines: customerAllocationJournalLines(a.amount),
+              actorId: ctx.userId,
+              now: new Date(),
+            });
+          }
         } else {
           const bill = (await this.models.SupplierBill.findOne({ tenantId: ctx.tenantId, _id: a.targetId }).session(session)) as HydratedDocument<SupplierBillDoc>;
           bill.outstanding = toDecimal(a.newOutstanding);
@@ -584,6 +619,10 @@ export class PaymentService {
 
     return await withTransaction(this.models.Payment.db, async (session) => {
       const revDate = input.reversalDate ?? todayIST();
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: payment.legalEntityId, docDate: payment.docDate, models: this.models });
+      if (revDate !== payment.docDate) {
+        await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: payment.legalEntityId, docDate: revDate, models: this.models });
+      }
       // 1. Reverse journal
       await this.journals.reverse(session, {
         tenantId: ctx.tenantId,
@@ -619,6 +658,17 @@ export class PaymentService {
             bill.version += 1;
             await bill.save({ session });
           }
+        }
+        if (payment.direction === 'incoming' && payment.recordKind === 'payment') {
+          await this.journals.reverse(session, {
+            tenantId: ctx.tenantId,
+            sourceType: 'allocation',
+            sourceId: a._id,
+            docDate: revDate,
+            narration: `Reversal of allocation for reversed receipt ${payment.number}`,
+            actorId: ctx.userId,
+            now: new Date(),
+          });
         }
         a.status = 'cancelled';
         await a.save({ session });
@@ -671,6 +721,7 @@ export class PaymentService {
     }
 
     return await withTransaction(this.models.Payment.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: payment.legalEntityId, docDate: input.refundDate, models: this.models });
       // Guarded write-lock on the shared Payment document to serialize concurrent refunds
       const lockedPayment = (await this.models.Payment.findOneAndUpdate(
         { tenantId: ctx.tenantId, _id: payment._id, status: 'posted' },

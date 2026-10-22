@@ -5,7 +5,7 @@
 > companies: CRM, GST-aware billing, purchasing, warehouse inventory, payments,
 > documents and reporting.
 
-**Status: development. Phases 1–9 of 13 are in place: foundation, design system and app shell; auth and tenancy; company and GST master data; inventory and warehouses; financial calculation engine and numbering; sales and order-to-cash; purchasing and supplier workflows; payments, manual & FIFO allocations, advance refunds, reversals, direct expenses, sales/purchase returns, credit/debit notes, and party running-balance statements.**
+**Status: development. Phases 1–10 of 13 implemented and verified across component, integration, and real-browser suites. Foundation, design system, auth/tenancy, company/tax masters, inventory/warehouses, calculation/journals/numbering, sales/orders, purchasing, payments/allocations/notes, and statutory preparation registers (GSTR-1, purchase register review, financial reconciliation, and period-close readiness coordination).**
 
 ## Implementation status
 
@@ -25,7 +25,8 @@
 | Phase 7: sales workflows (quotations, sales orders, reservations, dispatches, invoices, receivables & ageing, sales PDFs) | ● | ● | ● API integration (16 tests), permission matrix (77 endpoints × 7 roles), Playwright e2e | |
 | Phase 8: purchasing & supplier workflows (purchase orders, goods receipts, supplier bills, duplicate protection, payables & ageing, PO PDFs) | ● | ● | ● API integration (6/6 tests), permission matrix (540 tests), typecheck clean | |
 | Phase 9: payments, allocations, advance refunds, reversals, direct expenses, returns & notes, party statements | ● | ● | ● API integration (10/10 tests), domain unit tests (5/5), typecheck clean | |
-| Phases 10–13 (reports, financial statements, GSTR preparation, closing, analytics) | ● | | | |
+| Phase 10: statutory preparation & compliance screens (GSTR-1 outward registers, purchase register ITC review, financial reconciliation, HSN/SAC summary, document summary, period-close coordinator) | ● | ● Implemented | ● Component tested (7 JSDOM), Integration tested (36 backend tests with MongoReplSet), Real-browser verified (Playwright/Chrome on desktop/tablet/mobile) | Preparation only — not filed; direct portal integrations (e-way bill, e-invoice, GSTR-2B API) out of MVP |
+| Phases 11–13 (advanced analytics, financial statements, filing integrations) | ● | | | |
 
 Full progress log: [docs/planning/progress.md](docs/planning/progress.md).
 

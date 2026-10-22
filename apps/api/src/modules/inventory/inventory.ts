@@ -25,6 +25,7 @@ import type { AuditInput, AuditLog } from '../audit/audit.js';
 import type { RequestMeta } from '../identity/identity.js';
 import { canInEntity, canInWarehouse, visibleEntities, type TenantContext } from '../tenancy/tenancy.js';
 import { JournalService, stockJournalLines } from '../finance/journals.js';
+import { assertPeriodOpen } from '../finance/period-lock.js';
 import { enqueue } from '../../platform/outbox.js';
 import type { ObjectStorage } from '../../platform/storage.js';
 import { STOCK_TRANSFER_TEMPLATE } from '../../pdf/templates/stock-transfer.js';
@@ -449,6 +450,7 @@ export class InventoryService {
     await this.deps.journals.ensureAccounts(ctx.tenantId, entity._id);
 
     const posted = await withTransaction(this.deps.connection, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: entity._id, docDate: doc.docDate, models: this.deps.models });
       const { StockAdjustment, StockMovement } = this.deps.models;
       if (doc.type === 'opening') {
         // Opening stock is entered once per item and warehouse (FR-INV-02); later changes are adjustments.
@@ -696,6 +698,7 @@ export class InventoryService {
     const info = await this.stockItems(ctx, doc.lines.map((l) => ({ itemId: l.itemId.toHexString(), qty: l.qty.toString() })));
     await this.ledger.ensureRows(ctx.tenantId, entity._id, doc.lines.flatMap((l) => [{ warehouseId: from._id, itemId: l.itemId }, { warehouseId: to._id, itemId: l.itemId }]));
     const updated = await withTransaction(this.deps.connection, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: entity._id, docDate: doc.docDate, models: this.deps.models });
       const c = this.postContext(ctx, session, entity, doc.docDate, 'stock_transfer', doc._id, doc.number);
       const results = await this.ledger.post(
         c,
@@ -736,6 +739,7 @@ export class InventoryService {
     const entity = await this.findEntity(ctx, doc.legalEntityId);
     const info = await this.itemInfo(ctx, doc.lines.map((l) => l.itemId));
     const updated = await withTransaction(this.deps.connection, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: entity._id, docDate: doc.docDate, models: this.deps.models });
       const c = this.postContext(ctx, session, entity, doc.docDate, 'stock_transfer', doc._id, doc.number);
       await this.ledger.post(
         c,
@@ -778,6 +782,7 @@ export class InventoryService {
     const entity = await this.findEntity(ctx, doc.legalEntityId);
     const info = await this.itemInfo(ctx, doc.lines.map((l) => l.itemId));
     const updated = await withTransaction(this.deps.connection, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: entity._id, docDate: doc.docDate, models: this.deps.models });
       const outs = await this.deps.models.StockMovement.find({ tenantId: ctx.tenantId, sourceType: 'stock_transfer', sourceId: doc._id, kind: 'transfer_out', reversalOf: null }, { sourceLineId: 1 }, { session }).lean();
       const outByLine = new Map(outs.map((m) => [m.sourceLineId, m._id]));
       const c = this.postContext(ctx, session, entity, doc.docDate, 'stock_transfer', doc._id, doc.number);
@@ -999,6 +1004,7 @@ export class InventoryService {
     await this.ledger.ensureRows(ctx.tenantId, entity._id, counted.map((l) => ({ warehouseId: warehouse._id, itemId: l.itemId })));
     await this.deps.journals.ensureAccounts(ctx.tenantId, entity._id);
     const updated = await withTransaction(this.deps.connection, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: entity._id, docDate, models: this.deps.models });
       const balances = await this.deps.models.StockBalance.find({ tenantId: ctx.tenantId, warehouseId: warehouse._id, itemId: trusted({ $in: counted.map((l) => l.itemId) }) }, { itemId: 1, onHand: 1 }, { session }).lean();
       const onHand = new Map(balances.map((b) => [b.itemId.toHexString(), b.onHand.toString()]));
       // Stock that moved after the expected figures were taken would make the variance wrong.

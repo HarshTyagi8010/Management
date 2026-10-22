@@ -15,9 +15,11 @@ export * from './finance.js';
 export * from './sales.js';
 export * from './purchases.js';
 export * from './payments.js';
+export * from './compliance.js';
 
 /** Paginated list envelope (docs/api/api-conventions.md "Lists"). */
 export interface Page<T> {
   data: T[];
   page: { nextCursor: string | null; limit: number };
 }
+

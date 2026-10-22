@@ -1,0 +1,14 @@
+.cache
+.tmp
+.artifacts
+coverage
+test-results
+playwright-report
+blob-report
+docs
+scripts
+.env
+.env.*
+!apps/web
+!packages/contracts
+!packages/ui

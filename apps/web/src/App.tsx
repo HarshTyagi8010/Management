@@ -70,6 +70,14 @@ const moneyPages = {
 const creditNotes = page(() => import('./pages/sales/CreditNotesPage'), (m) => m.CreditNotesPage);
 const debitNotes = page(() => import('./pages/purchases/DebitNotesPage'), (m) => m.DebitNotesPage);
 const partyStatement = page(() => import('./pages/reports/PartyStatementPage'), (m) => m.PartyStatementPage);
+const reports = {
+  reconciliation: page(() => import('./pages/reports/FinancialReconciliationPage'), (m) => m.FinancialReconciliationPage),
+  compliance: page(() => import('./pages/reports/ComplianceCapabilitiesPage'), (m) => m.ComplianceCapabilitiesPage),
+  outwardRegister: page(() => import('./pages/reports/OutwardRegisterPage'), (m) => m.OutwardRegisterPage),
+  purchaseRegister: page(() => import('./pages/reports/PurchaseRegisterPage'), (m) => m.PurchaseRegisterPage),
+  hsnSummary: page(() => import('./pages/reports/HsnSummaryPage'), (m) => m.HsnSummaryPage),
+  documentSummary: page(() => import('./pages/reports/DocumentSummaryPage'), (m) => m.DocumentSummaryPage),
+};
 
 function Root() {
   return (
@@ -158,6 +166,12 @@ export const routes: RouteObject[] = [
           { path: 'sales/returns', lazy: creditNotes },
           { path: 'purchases/debit-notes', lazy: debitNotes },
           { path: 'purchases/returns', lazy: debitNotes },
+          { path: 'reports/reconciliation', lazy: reports.reconciliation },
+          { path: 'reports/compliance', lazy: reports.compliance },
+          { path: 'reports/outward-register', lazy: reports.outwardRegister },
+          { path: 'reports/purchase-register', lazy: reports.purchaseRegister },
+          { path: 'reports/hsn-summary', lazy: reports.hsnSummary },
+          { path: 'reports/document-summary', lazy: reports.documentSummary },
           { path: 'reports/ageing', lazy: receivables },
           { path: 'reports/statements', lazy: partyStatement },
           { path: 'account', lazy: account },

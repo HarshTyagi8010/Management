@@ -24,6 +24,7 @@ import type {
 } from '../../models.js';
 import { fromDecimal, toDecimal, todayIST } from '../../platform/values.js';
 import { withTransaction } from '../../platform/transactions.js';
+import { assertPeriodOpen } from '../finance/period-lock.js';
 import { canInEntity, canInWarehouse, type TenantContext } from '../tenancy/tenancy.js';
 import {
   forbidden,
@@ -248,6 +249,7 @@ export class NoteService {
     if (!invoice) throw notFound('Sales invoice');
 
     return await withTransaction(this.models.CreditNote.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: cn.legalEntityId, docDate: cn.docDate, models: this.models });
       // 0. Immediate write lock on SalesInvoice to serialize concurrent note issuances
       const invDoc = (await this.models.SalesInvoice.findOneAndUpdate(
         { tenantId: ctx.tenantId, _id: invoice._id },
@@ -476,12 +478,17 @@ export class NoteService {
     }
 
     return await withTransaction(this.models.CreditNote.db, async (session) => {
+      const revDate = todayIST();
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: cn.legalEntityId, docDate: cn.docDate, models: this.models });
+      if (revDate !== cn.docDate) {
+        await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: cn.legalEntityId, docDate: revDate, models: this.models });
+      }
       // 1. Reverse journal
       await this.journals.reverse(session, {
         tenantId: ctx.tenantId,
         sourceType: 'credit_note',
         sourceId: cn._id,
-        docDate: todayIST(),
+        docDate: revDate,
         narration: `Cancellation of credit note ${cn.number}: ${reason}`,
         actorId: ctx.userId,
         now: new Date(),
@@ -764,6 +771,7 @@ export class NoteService {
     if (!bill) throw notFound('Supplier bill');
 
     return await withTransaction(this.models.DebitNote.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: dn.legalEntityId, docDate: dn.docDate, models: this.models });
       // 0. Immediate write lock on SupplierBill to serialize concurrent note issuances
       const billDoc = (await this.models.SupplierBill.findOneAndUpdate(
         { tenantId: ctx.tenantId, _id: bill._id },
@@ -974,12 +982,17 @@ export class NoteService {
     }
 
     return await withTransaction(this.models.DebitNote.db, async (session) => {
+      const revDate = todayIST();
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: dn.legalEntityId, docDate: dn.docDate, models: this.models });
+      if (revDate !== dn.docDate) {
+        await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: dn.legalEntityId, docDate: revDate, models: this.models });
+      }
       // 1. Reverse journal
       await this.journals.reverse(session, {
         tenantId: ctx.tenantId,
         sourceType: 'debit_note',
         sourceId: dn._id,
-        docDate: todayIST(),
+        docDate: revDate,
         narration: `Cancellation of debit note ${dn.number}: ${reason}`,
         actorId: ctx.userId,
         now: new Date(),

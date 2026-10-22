@@ -75,14 +75,18 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'Reports',
-    to: '/reports/registers',
+    to: '/reports/reconciliation',
     icon: <BarChart3 {...icon} />,
     items: [
-      { label: 'Registers', to: '/reports/registers' },
+      { label: 'Financial reconciliation', to: '/reports/reconciliation' },
+      { label: 'Compliance capabilities', to: '/reports/compliance' },
+      { label: 'Outward register (GSTR-1)', to: '/reports/outward-register' },
+      { label: 'Purchase register (ITC)', to: '/reports/purchase-register' },
+      { label: 'HSN/SAC summary (T12)', to: '/reports/hsn-summary' },
+      { label: 'Documents issued (T13)', to: '/reports/document-summary' },
       { label: 'Outstanding & ageing', to: '/reports/ageing' },
       { label: 'Party statements', to: '/reports/statements' },
-      { label: 'GST summary', to: '/reports/gst' },
-      { label: 'Ledgers', to: '/reports/ledgers' },
+      { label: 'General ledger', to: '/reports/ledgers' },
     ],
   },
   {
@@ -95,15 +99,13 @@ export const NAV: NavGroup[] = [
       { label: 'Tax rates', to: '/settings/tax' },
       { label: 'Users & roles', to: '/settings/users' },
       { label: 'Workflow', to: '/settings/workflow' },
-      { label: 'Period locks', to: '/settings/period-locks' },
+      { label: 'Period locks & close', to: '/settings/period-locks' },
       { label: 'Audit log', to: '/settings/audit' },
     ],
   },
 ];
 
 const PHASE_BY_PREFIX: Array<[string, number, string]> = [
-  ['/reports/registers', 11, 'Sales and purchase registers.'],
-  ['/reports/gst', 11, 'HSN-wise and rate-wise GST summaries.'],
   ['/reports/ledgers', 11, 'Party and stock ledgers.'],
 ];
 

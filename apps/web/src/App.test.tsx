@@ -95,10 +95,10 @@ describe('dashboard', () => {
 describe('navigation and planned modules', () => {
   it('marks the current page in navigation and shows an honest placeholder', async () => {
     mockApi();
-    await openPage('/sales/credit-notes', 'Credit notes');
-    expect(screen.getByText('Planned for Phase 9')).toBeTruthy();
+    await openPage('/reports/ledgers', 'General ledger');
+    expect(screen.getByText('Planned for Phase 11')).toBeTruthy();
     const current = document.querySelectorAll('[aria-current="page"]');
-    expect([...current].every((el) => el.textContent === 'Credit notes')).toBe(true);
+    expect([...current].every((el) => el.textContent === 'General ledger')).toBe(true);
     expect(current.length).toBeGreaterThan(0);
   });
 

@@ -9,6 +9,7 @@ import { AppError } from '../../errors.js';
 import type { ExpenseDoc } from '../../models.js';
 import { fromDecimal, toDecimal, todayIST } from '../../platform/values.js';
 import { withTransaction } from '../../platform/transactions.js';
+import { assertPeriodOpen } from '../finance/period-lock.js';
 import { canInEntity, type TenantContext } from '../tenancy/tenancy.js';
 import {
   forbidden,
@@ -147,6 +148,7 @@ export class ExpenseService {
     }
 
     return await withTransaction(this.models.Expense.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: expense.legalEntityId, docDate: expense.docDate, models: this.models });
       const count = await this.models.Expense.countDocuments({ tenantId: ctx.tenantId }, { session });
       const expenseNumber = `EXP/${expense.docDate.slice(0, 4)}/${String(count + 1).padStart(4, '0')}`;
       expense.number = expenseNumber;
@@ -220,6 +222,7 @@ export class ExpenseService {
     }
 
     return await withTransaction(this.models.Expense.db, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: expense.legalEntityId, docDate: expense.docDate, models: this.models });
       await this.journals.reverse(session, {
         tenantId: ctx.tenantId,
         sourceType: 'expense',

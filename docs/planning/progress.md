@@ -641,6 +641,59 @@ All 6 financial-integrity defect areas have been confirmed, reproduced with dedi
 - **Concurrency Contention**: Serialized on shared `SalesInvoice`, `SupplierBill`, and `Payment` documents via version-incremented atomic write locks within MongoDB transactions.
 - **Slice 0 Status**: **PASSED.** Awaiting explicit user approval before beginning Slice 1 / Phase 10.
 
+## 2026-10-22 — Phase 10: Batch C (Statutory Preparation & Period-Close Readiness) - Corrected
+
+### Bounded Batch C Corrections Implemented
+1. **B2CL Statutory Effective Date (Notification 12/2024-CT clauses 11(ii) and 28)**:
+   - Corrected effective date to **1 August 2024** (`2024-08-01`) from previously reported November 2024.
+   - B2CL applies strictly to unregistered, inter-state supplies with invoice value strictly `> ₹1,00,000.00` on or after 1 August 2024 (and `> ₹2,50,000.00` prior).
+   - Invoices with grand total `<= ₹1,00,000.00` (including exactly ₹1,00,000.00) and all intra-state supplies belong in B2CS.
+   - Independent boundary tests added for July 2024, August 2024, exactly 100000, above 100000, intra vs inter, registered vs unregistered.
+
+2. **Removed Automatic Purchase-Return -> Table 4(B)(2) Mapping**:
+   - Buyer-created commercial purchase-return debit memos are marked `REVIEW_REQUIRED` with explicit rationale.
+   - Avoids duplicate ITC reduction (preserves separation between 4(A)(5) net supplier credit notes vs prior period 4(B)(2) accounting reversals).
+   - Totals schema updated: `eligibleTaxCharged`, `purchaseReturnAccountingReversalTax`, `netEligibleTaxUnderReview`, `reviewRequiredCount`.
+
+3. **Unregistered Outward Credit Note Statutory Routing**:
+   - Credit notes issued against B2CS supplies are netted directly into Table 7 (B2CS) in summaries, while preserving source-document drill down.
+   - Only credit notes against B2CL supplies (unregistered inter-state > threshold) are assigned to Table 9B CDNUR, preventing double-counting and portal rejection.
+
+4. **Document Summary Semantics (GSTR-1 Table 13)**:
+   - Buyer purchase-return debit memos (inward commercial memos) are excluded from Table 13 Entry 4 (outward statutory debit notes under Section 34).
+   - Buyer memos are tracked in `internalExcludedSeries` (`DN`) with explicit statutory rationale.
+   - Added disclosure of `unsupportedTable13Categories` (delivery challans, revised invoices, receipt/payment/refund vouchers).
+
+5. **Cryptographic & State Freshness Binding for Period Close**:
+   - Coordination token is a base64url-encoded payload bound to `tenantId`, `legalEntityId`, `periodEndDate`, `closeMode`, `coordinationSeq` (the entity's `periodLockCoordination`), and `warningsHash`.
+   - Any financial posting made after checklist generation mutates `periodLockCoordination` via `assertPeriodOpen`, immediately rendering the stale token invalid (rejected with 422 `BUSINESS_RULE`).
+   - Authoritative real-time re-evaluation in `executePeriodClose` prevents bypassing blockers by replaying earlier tokens.
+   - Warning acknowledgements are cryptographically bound to the evaluated finding set.
+
+6. **Historical Period Close Policy**:
+   - Reconciled close on historical periods (where subsequent ledger transactions exist) is blocked with `HISTORICAL_RECONCILIATION_UNSUPPORTED` because current-state reconciliation cannot establish historical closing balances.
+   - A distinctly labelled **Administrative Posting Lock** (`mode: 'administrative_lock'`) is supported for historical periods, providing non-reconciled posting protection with explicit audit logging.
+
+### Verification Summary (Batch C & D)
+| Verification Level | Scope / Suite | Command | Result & Limitations |
+|---|---|---|---|
+| **Component Tested** (JSDOM) | Phase 10 Component & Screen Suite | `npx vitest run apps/web/src/phase10.test.tsx` | **Passed (7/7 tests)**: Verified in JSDOM (React Testing Library) for UI layout, empty states, warning acknowledgement, and double-click prevention. Note: JSDOM does not verify layout rendering or browser networking. |
+| **Integration Tested** (Node + MongoReplSet) | Compliance Integration Suite | `npx vitest run apps/api/test/integration/compliance.test.ts` | **Passed (16/16 tests)**: Verified against real MongoDB replica set for boundary thresholds (Notification 12/2024-CT), B2CS note netting, RCM REVIEW_REQUIRED segregation, Table 13 series, cryptographic token HMAC verification, blocker detection, and legacy period-lock coordination. |
+| **Integration Tested** (Node + MongoReplSet) | Financial Reconciliation Suite | `npx vitest run apps/api/test/integration/reconciliation.test.ts` | **Passed (13/13 tests)**: Verified against real MongoDB replica set for control accounts, AR/AP/Inventory discrepancy detection, and historical mode restrictions. |
+| **Integration Tested** (Node + MongoReplSet) | Period-Lock Concurrency Suite | `npx vitest run apps/api/test/integration/period-lock-concurrency.test.ts` | **Passed (7/7 tests)**: Verified deterministic ordering, concurrent contention aborts, and tenant boundary isolation. |
+| **Real Browser Verified** | Playwright E2E Compliance Suite | `npx playwright test e2e/compliance.spec.ts --project=desktop-1440 --project=tablet-1024 --project=mobile-390` | **Passed (24/24 test runs, 8 tests across 3 viewports)**: Verified in real Google Chrome (`channel: 'chrome'`) against live `vite preview` (port 4173) and test API server (port 4100). Verified authenticated navigation across all 7 routes, filter controls, CSV export triggers, and responsive layouts. |
+| **Visually Reviewed** | Visual Screenshot Capture | `test-results/visual/` (`capabilities-*.png`, `reconciliation-*.png`, `period-locks-*.png`) | **Evidence Captured**: Full-page screenshots generated for desktop (1440px), tablet (1024px), and mobile (390px). Visual alignment and typography manually verified against design system tokens; formal external design sign-off remains subject to practitioner review. |
+| **Typecheck** | Monorepo Project References | `npm run typecheck` | **Passed (Exit code 0)**: Clean check across contracts, domain, api, worker, ui, and web. |
+| **Build Verification** | Monorepo Build Bundle | `npm run build` | **Passed (Exit code 0)**: Production Node packages and Vite web bundle compiled cleanly. |
+| **Deployment Verified** | Staging Cloud Deployment | — | **Pending**: Step 1 Staging Deployment Plan prepared; waiting for owner authorization. Cloud environments not yet provisioned. |
+
+### Remaining Limitations & Practitioner Boundaries
+1. **Statutory Filing Boundary**: All compliance outputs represent internal accounting preparation registers only. They are not direct GSTN/IRP filings, GSP API submissions, or automated GSTR-2B external statement reconciliations.
+2. **Practitioner Review Boundary**: Commercial return debit memos and inward reverse-charge (RCM) transactions remain categorized as `REVIEW_REQUIRED` and are excluded from confirmed claim-ready totals until certified by an accountant.
+3. **Historical Reconciliation**: Point-in-time mutable balance reconciliation is unsupported retrospectively when subsequent postings exist. Administrative posting lock provides cutoff protection without asserting historical reconciliation.
+
+
+
 
 
 

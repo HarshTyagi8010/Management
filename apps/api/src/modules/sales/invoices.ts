@@ -6,6 +6,7 @@ import { enqueue } from '../../platform/outbox.js';
 import { withTransaction } from '../../platform/transactions.js';
 import { toDecimal, versionConflict } from '../../platform/values.js';
 import { cogsJournalLines, salesInvoiceJournalLines } from '../finance/journals.js';
+import { assertPeriodOpen } from '../finance/period-lock.js';
 import type { RequestMeta } from '../identity/identity.js';
 import type { PostLine } from '../inventory/ledger.js';
 import type { TenantContext } from '../tenancy/tenancy.js';
@@ -135,6 +136,7 @@ export class SalesInvoiceService {
     const einvoiceStatus = c.fields.documentKind === 'tax_invoice' && c.fields.buyer.gstin && turnoverRules(entity.turnoverBand).eInvoiceApplicable ? 'not_submitted' : 'not_applicable';
 
     const saved = await withTransaction(this.core.deps.connection, async (session) => {
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: entity._id, docDate: doc.docDate, models: this.models });
       const source = await this.checkSource(ctx, doc, c.fields.lines, entity, session);
       // The number first: if anything after it fails, the transaction rolls the counter back (AC-NUM-1).
       const numbered = await this.core.takeNumber(session, ctx, series, doc.docDate);
@@ -278,6 +280,7 @@ export class SalesInvoiceService {
     const saved = await withTransaction(this.core.deps.connection, async (session) => {
       const current = await this.models.SalesInvoice.findOne({ tenantId: ctx.tenantId, _id: doc._id, version: input.version, status: 'issued' }, null, { session }).lean();
       if (!current) throw versionConflict('invoice');
+      await assertPeriodOpen(session, { tenantId: ctx.tenantId, legalEntityId: entity._id, docDate: current.docDate, models: this.models });
       const number = current.number ?? '';
       if (warehouse) {
         const outs = await this.models.StockMovement.find({ tenantId: ctx.tenantId, sourceType: 'sales_invoice', sourceId: doc._id, kind: 'issue', reversalOf: null }, { sourceLineId: 1 }, { session }).lean();
